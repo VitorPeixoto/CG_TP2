@@ -2,8 +2,6 @@
 #include <SOIL/SOIL.h>
 #include <GL/freeglut.h>
 #include <iostream>
-#include <math.h>
-#include <string.h>
 #include <string>
 #include <random>
 
@@ -13,31 +11,14 @@
 
 using namespace std;
 
-#define R 0
-#define G 1
-#define B 2
-
-#define X 0
-#define Y 1
-#define Z 2
-
-#define DISTANCE_DIVIDER 15
-#define SIZE_MULTIPLIER 60000
-
-#define SUN_SIZE 5
-#define SUN_RADIUS 3.5
-
+const double DISTANCE_DIVIDER = 35;//15;
+const double SIZE_MULTIPLIER  = 15;
+const double FPS_CONST = 0.017;
 #define ORTHO_WIDTH  (orthoHalfWidth*2)
 #define ORTHO_HEIGHT (orthoHalfHeight*2)
 
-/**
- * Multiplicador do comprimento do mapa para mais telas
- **/
-#define SCREENS 4
-
 #define KEY_ESC 27
 #define MULTIPLIER 0.5
-#define FPS_CONST 0.017*MULTIPLIER
 #define HUD_MARGIN 20
 #define BG_MOVEMENT_DELAY 25
 
@@ -50,13 +31,34 @@ bool colidiu = false;
 int windowWidth,
     windowHeight;
 
+double angleX = 0.0,
+       angleY = 0.0;
+
+double x = 0.0, y = 0.0, z = 0.0;
+
 double orthoHalfWidth, orthoHalfHeight;
 
 Vector3d position(0.0, 0.0, 0.0);
 Vector3d paceX(0.1, 0.0, 0.0);
 Vector3d paceY(0.0, 0.1, 0.0);
 
-CorpoCeleste sun, mercury, venus, earth, mars;
+CorpoCeleste sun(PlanetEnum::SUN()),
+             mercury(PlanetEnum::MERCURY()),
+             venus(PlanetEnum::VENUS()),
+             earth(PlanetEnum::EARTH()),
+                moon(PlanetEnum::MOON()),
+                    rocket(PlanetEnum::ROCKET()),
+                atmosphere(PlanetEnum::EARTH_ATMOSPHERE()),
+             mars(PlanetEnum::MARS()),
+             jupiter(PlanetEnum::JUPITER()),
+             saturn(PlanetEnum::SATURN()),
+                saturnRing(PlanetEnum::SATURN_RING()),
+             uranus(PlanetEnum::URANUS()),
+             neptune(PlanetEnum::NEPTUNE()),
+             //pluto(PlanetEnum::PLUTO()),
+             sky(PlanetEnum::STARS());
+
+Mesh plane;
 
 void drawScene(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -67,11 +69,43 @@ void drawScene(void) {
                0,  0,  0,
                0,  1,  0);
 
+    glRotated(angleX, 1.0, 0.0, 0.0);
+    glRotated(angleY, 0.0, 1.0, 0.0);
+    glCullFace(GL_FRONT);
+    sky.draw();
+    glCullFace(GL_BACK);
+    glRotated(-angleX, 1.0, 0.0, 0.0);
+    glRotated(-angleY, 0.0, 1.0, 0.0);
+
+    glTranslated(x, y, z);
+    glRotated(angleX, 1.0, 0.0, 0.0);
+    glRotated(angleY, 0.0, 1.0, 0.0);
     sun.draw();
-    mercury.draw();
+    /*mercury.draw();
     venus.draw();
     earth.draw();
     mars.draw();
+    jupiter.draw();
+    saturn.draw();
+    uranus.draw();
+    neptune.draw();*/
+    //pluto.draw();
+
+    /*glDisable(GL_CULL_FACE);
+    plane.draw();
+    glColor3d(0.0, 0.0, 0.0);
+    plane.drawEdges();
+    glEnable(GL_CULL_FACE);*/
+    /*glDisable(GL_CULL_FACE);
+    mercury.drawOrbit();
+    earth.drawOrbit();
+    venus.drawOrbit();
+    mars.drawOrbit();
+    jupiter.drawOrbit();
+    saturn.drawOrbit();
+    uranus.drawOrbit();
+    neptune.drawOrbit();
+    glEnable(GL_CULL_FACE);*/
 
     // Diz ao OpenGL para colocar o que desenhamos na tela
     glutSwapBuffers();
@@ -103,91 +137,82 @@ void inicializa(void) {
     // Esconder o ponteiro do mouse quando dentro da janela
     glutSetCursor(GLUT_CURSOR_NONE);
 
-    sun.loadFromFile("../src/objects/Earth3.obj");
-    mercury.loadFromFile("../src/objects/Earth3.obj");
-    venus.loadFromFile("../src/objects/Earth3.obj");
-    earth.loadFromFile("../src/objects/Earth3.obj");
-    mars.loadFromFile("../src/objects/Earth3.obj");
+    sun.loadFromFile("../src/objects/Sphere.obj");
+    mercury.loadFromFile("../src/objects/Sphere.obj");
+    venus.loadFromFile("../src/objects/Sphere.obj");
+    earth.loadFromFile("../src/objects/Sphere.obj");
+        moon.loadFromFile("../src/objects/Sphere.obj");
+        atmosphere.loadFromFile("../src/objects/Sphere.obj");
+    mars.loadFromFile("../src/objects/Sphere.obj");
+    sky.loadFromFile("../src/objects/Sphere.obj");
+    jupiter.loadFromFile("../src/objects/Sphere.obj");
+    saturn.loadFromFile("../src/objects/Sphere.obj");
+        saturnRing.loadFromFile("../src/objects/Ring.obj");
+    uranus.loadFromFile("../src/objects/Sphere.obj");
+    neptune.loadFromFile("../src/objects/Sphere.obj");
+    rocket.loadFromFile("../src/objects/Rocket.obj");
+    //pluto.loadFromFile("../src/objects/Earth3.obj");
 
-    int textureId = SOIL_load_OGL_texture(
-            "../src/images/Sun.jpg",
-            SOIL_LOAD_AUTO,
-            SOIL_CREATE_NEW_ID,
-            0
-    );
-    if (!textureId) {
-        cout << "Erro do SOIL: " << SOIL_last_result() << endl;
-        exit(1);
-    }
-    sun.setTextureId(textureId);
-    sun.setSize(SUN_SIZE);
-    textureId = SOIL_load_OGL_texture(
-            "../src/images/Mercury.jpg",
-            SOIL_LOAD_AUTO,
-            SOIL_CREATE_NEW_ID,
-            0
-    );
-    if (!textureId) {
-        cout << "Erro do SOIL: " << SOIL_last_result() << endl;
-        exit(1);
-    }
-    mercury.setTextureId(textureId);
-    mercury.translate(Vector3d(83.25*SUN_RADIUS/DISTANCE_DIVIDER, 0.0, 0.0));
-    mercury.setOrbitAngle(0.01);
-    mercury.setSize(SUN_SIZE*0.000003*SIZE_MULTIPLIER);
+    plane.loadFromFile("../src/objects/Plane.obj");
+    plane.scale(50);
+
+    sun.loadTexture();
+
+    mercury.setOrbitAngle(0.0);
     mercury.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    mercury.loadTexture();
 
-    textureId = SOIL_load_OGL_texture(
-            "../src/images/Venus.jpg",
-            SOIL_LOAD_AUTO,
-            SOIL_CREATE_NEW_ID,
-            0
-    );
-    if (!textureId) {
-        cout << "Erro do SOIL: " << SOIL_last_result() << endl;
-        exit(1);
-    }
-    venus.setTextureId(textureId);
-    venus.translate(Vector3d(155.57*SUN_RADIUS/DISTANCE_DIVIDER, 0.0, 0.0));
-    venus.setOrbitAngle(0.01);
-    venus.setSize(SUN_SIZE*0.000008702*SIZE_MULTIPLIER);
+    venus.setOrbitAngle(0.0);
     venus.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    venus.loadTexture();
 
-    textureId = SOIL_load_OGL_texture(
-            "../src/images/Earth.jpg",
-            SOIL_LOAD_AUTO,
-            SOIL_CREATE_NEW_ID,
-            0
-    );
-    if (!textureId) {
-        cout << "Erro do SOIL: " << SOIL_last_result() << endl;
-        exit(1);
-    }
-    earth.setTextureId(textureId);
-    Vector3d earthPosition(215.1*SUN_RADIUS/DISTANCE_DIVIDER, 0.0, 0.0);
-    earth.translate(earthPosition);
-    earth.setOrbitAngle(0.01);
-    earth.setSize(SUN_SIZE*0.00000917*SIZE_MULTIPLIER);
+    earth.setOrbitAngle(0.0);
     earth.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    moon.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    earth.loadTexture();
+    moon.loadTexture();
+    rocket.loadTexture();
+    rocket.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    moon.pushChildren(rocket);
+    atmosphere.loadTexture();
+    earth.pushChildren(moon);
+    //earth.pushChildren(atmosphere);
 
-    textureId = SOIL_load_OGL_texture(
-            "../src/images/Mars.jpg",
-            SOIL_LOAD_AUTO,
-            SOIL_CREATE_NEW_ID,
-            0
-    );
-    if (!textureId) {
-        cout << "Erro do SOIL: " << SOIL_last_result() << endl;
-        exit(1);
-    }
-    mars.setTextureId(textureId);
-    mars.translate(Vector3d((327.67*SUN_RADIUS/DISTANCE_DIVIDER), 0.0, 0.0));
-    mars.setOrbitAngle(0.01);
-    mars.setSize(SUN_SIZE*0.000003035*SIZE_MULTIPLIER);
+    mars.setOrbitAngle(0.0);
     mars.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    mars.loadTexture();
+
+    jupiter.loadTexture();
+    jupiter.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+
+    saturn.loadTexture();
+    saturn.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+    saturnRing.loadTexture();
+    saturn.pushChildren(saturnRing);
+
+    uranus.loadTexture();
+    uranus.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+
+    neptune.loadTexture();
+    neptune.setOrbitVector(Vector3d(0.0, -1.0, 0.0));
+
+    /*pluto.loadTexture();
+    pluto.setOrbitVector(Vector3d(0.0, -1.0, 0.0));*/
+
+    sky.translate(Vector3d(0.0, 0.0, -100));
+    sky.loadTexture();
+
+    sun.pushChildren(mercury);
+    sun.pushChildren(venus);
+    sun.pushChildren(earth);
+    sun.pushChildren(mars);
+    sun.pushChildren(jupiter);
+    sun.pushChildren(saturn);
+    sun.pushChildren(uranus);
+    sun.pushChildren(neptune);
 
     glPointSize(4);
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glLineWidth(5);
     glPolygonMode(GL_FRONT, GL_FILL);
 }
 
@@ -217,16 +242,40 @@ void resizeScreen(int w, int h) {
 
 void keyboardHandle() {
     if(keyStates['d']) {
-        position += paceX;
+        x += 1.0;
+        //position += paceX;
     }
     if(keyStates['a']) {
-        position -= paceX;
+        x -= 1.0;
+        //position -= paceX;
     }
     if(keyStates['w']) {
-        position += paceY;
+        z += 1.0;
+        //position += paceY;
     }
     if(keyStates['s']) {
-        position -= paceY;
+        z -= 1.0;
+        //position -= paceY;
+    }
+    if(keyStates['[']) {
+        y += 1.0;
+        //position += paceY;
+    }
+    if(keyStates[']']) {
+        y -= 1.0;
+        //position -= paceY;
+    }
+    if(keyStates['+']) {
+        angleX += 1.0;
+    }
+    if(keyStates['-']) {
+        angleX -= 1.0;
+    }
+    if(keyStates['q']) {
+        angleY -= 1.0;
+    }
+    if(keyStates['e']) {
+        angleY += 1.0;
     }
     triangulo.setPosition(position);
     glutPostRedisplay();
@@ -235,6 +284,17 @@ void keyboardHandle() {
 void atualiza(int time) {
     glutTimerFunc(time, atualiza, time);
     keyboardHandle();
+
+    sun.atualiza();
+    /*mercury.atualiza();
+    venus.atualiza();
+    earth.atualiza();
+    mars.atualiza();
+    jupiter.atualiza();
+    saturn.atualiza();
+    uranus.atualiza();
+    neptune.atualiza();*/
+
     colidiu = triangulo.collidesWith(quadrilatero.getPolygons(), quadrilatero.getPosition());
 }
 

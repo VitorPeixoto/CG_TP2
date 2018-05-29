@@ -62,6 +62,7 @@ class Vector3 {
         Vector3<T>& operator+=(const Vector3<T>& vector);
         Vector3<T>& operator-=(const Vector3<T>& vector);
         Vector3<T>& operator*=(T num);
+        Vector3<T>& operator*=(const Vector3<T>& vector);
         Vector3<T>& operator/=(T num);
 
         bool operator==(const Vector3<T>& vector) const;
@@ -150,6 +151,14 @@ Vector3<T>& Vector3<T>::operator/=(T num) {
         components[Y] /= num;
         components[Z] /= num;
         return *this;
+}
+
+template<class T>
+Vector3<T> &Vector3<T>::operator*=(const Vector3<T> &vector) {
+    components[X] *= vector[X];
+    components[Y] *= vector[Y];
+    components[Z] *= vector[Z];
+    return *this;
 }
 
 typedef Vector3<int>    Vector3i;

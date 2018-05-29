@@ -108,6 +108,8 @@ void Mesh::loadFromFile(const char* fileName) {
             textureLine >> texture[U];
             textureLine >> texture[V];
 
+            texture[V] = 1.0 - texture[V];
+
             this->textures.push_back(texture);
         } else if (line.substr(0, 2) == "vn") {
             // stream de string para facilitar a vida
@@ -125,18 +127,84 @@ void Mesh::loadFromFile(const char* fileName) {
 }
 
 void Mesh::draw() {
-    for (Triangle t : elements) {
-        glBegin(GL_TRIANGLES);
+    glPushMatrix();
+        glScaled(size[X], size[Y], size[Z]);
+        glTranslated(position[X], position[Y], position[Z]);
+
+        for (Triangle t : elements) {
+            glBegin(GL_TRIANGLES);
+                for(Face face : t.faces) {
+                    Vector4d v  = vertices[face.vertex];
+                    Vector3d tx = textures[face.texture];
+                    Vector3d n  = normals[face.normal];
+
+                    glNormal3d(n[X], n[Y], n[Z]);
+
+                    glTexCoord2d(tx[X], tx[Y]);
+                    glVertex3d(v[X], v[Y], v[Z]);
+                }
+            glEnd();
+        }
+    glPopMatrix();
+}
+
+void Mesh::drawEdges() {
+    glPushMatrix();
+        glScaled(size[X], size[Y], size[Z]);
+        glTranslated(position[X], position[Y], position[Z]);
+        for (Triangle t : elements) {
+            glBegin(GL_LINE_LOOP);
             for(Face face : t.faces) {
                 Vector4d v  = vertices[face.vertex];
-                Vector3d tx = textures[face.texture];
-                Vector3d n  = normals[face.normal];
 
-                glNormal3d(n[X], n[Y], n[Z]);
-
-                glTexCoord2d(tx[X], tx[Y]);
                 glVertex3d(v[X], v[Y], v[Z]);
             }
+            glEnd();
+        }
+    glPopMatrix();
+}
+
+const Vector3d &Mesh::getPosition() const {
+    return position;
+}
+
+void Mesh::setPosition(const Vector3d &position) {
+    this->position = position;
+}
+
+void Mesh::translate(const Vector3d &position) {
+    this->position += position;
+}
+
+const Vector3d &Mesh::getSize() const {
+    return size;
+}
+
+void Mesh::setSize(const Vector3d &size) {
+    this->size = size;
+}
+
+void Mesh::scale(const Vector3d &size) {
+    this->size *= size;
+}
+
+void Mesh::scale(const double size) {
+    this->size *= size;
+}
+
+void Mesh::simpleDraw() {
+    for (Triangle t : elements) {
+        glBegin(GL_TRIANGLES);
+        for(Face face : t.faces) {
+            Vector4d v  = vertices[face.vertex];
+            Vector3d tx = textures[face.texture];
+            Vector3d n  = normals[face.normal];
+
+            glNormal3d(n[X], n[Y], n[Z]);
+
+            glTexCoord2d(tx[X], tx[Y]);
+            glVertex3d(v[X], v[Y], v[Z]);
+        }
         glEnd();
     }
 }

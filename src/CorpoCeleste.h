@@ -4,10 +4,18 @@
 
 #include <RigidBody.h>
 #include <Mesh.h>
+#include "PlanetEnum.h"
 
-class CorpoCeleste : public RigidBody, public Mesh {
+class CorpoCeleste : public Mesh {
     public:
         void draw();
+
+        void drawOrbit();
+
+        CorpoCeleste(PlanetEnum planet) : size(planet.getSize()), texturePath(planet.getTexturePath()), rotationAngle(planet.getRotationAngle()), orbitStep(planet.getTranslationAngle()), cullFace(planet.getCullFace()){
+            this->translate(Vector3d(-planet.getDistance(), 0.0, 0.0));
+            orbit.loadFromFile("../src/objects/Orbit3.obj");
+        }
 
     int getTextureId() const;
 
@@ -29,10 +37,19 @@ class CorpoCeleste : public RigidBody, public Mesh {
 
     void setSize(double size);
 
+    void loadTexture();
+    void pushChildren(CorpoCeleste children);
+
+    void atualiza();
+
 private:
+        bool cullFace;
         int textureId;
-        double orbitAngle, size;
+        const char* texturePath;
+        double rotationAngle, orbitAngle, orbitStep, size;
         Vector3d rotation, orbitVector;
+        vector<CorpoCeleste> childrens;
+        Mesh orbit;
 };
 
 
